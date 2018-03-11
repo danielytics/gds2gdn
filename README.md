@@ -18,5 +18,6 @@ Currently it only parses the source file and outputs an AST in EDN format. As th
 # Limitations
 
  - Currently `gds2gdn` works on single `.gd` files as self-contained units. In time, it will be smarter and follow `extends` references to other scripts.
+ - Reporting of parse errors is currently not particularly good. It will show you the line number and colume, and point out the specific token, but it does not tell you why it failed. It does currently output the raw failure data from the underlying parser library, but it isn't very useful for end users. This will be improved once either the library improves or a workaround is found. Adding a `-t` option before the script name will output some more parse information, but again, its likely only useful to developers of `gds2gdn`.
  - There are some GDScript features which either aren't (yet, in some cases) supported by `godot-cpp` (for example, many of the GDScript built-in functions) and these are therefore not supported by `gds2gdn`. Support will be added as `godot-cpp` matures.
  

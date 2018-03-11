@@ -1,4 +1,4 @@
-start               = nl* extends? definitions
+gdscript            = nl* extends? definitions
 extends             = <kw-extends> ws (string | identifier) nl
 <definitions>       = (definition | '') (nl definitions)?
 <definition>        = enum | function
