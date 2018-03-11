@@ -1,0 +1,36 @@
+start               = nl* extends? definitions
+extends             = <kw-extends> ws (string | identifier) nl
+<definitions>       = (definition | '') (nl definitions)?
+<definition>        = enum | function
+
+enum                = <kw-enum> ws (enum-name ws)? <'{'> enum-entry (ws? <','> ws? enum-entry)* <'}'> ws?
+enum-entry          = enum-name (ws? <'='> ws? enum-value)?
+enum-name           = identifier
+enum-value          = integer
+
+function            = function-header nl function-body
+<function-header>   = <kw-func> ws function-name ws? <'('> ws? parameter-list ws? <'):'>
+function-name       = identifier
+parameter-list      = parameter? (ws? <','> ws? parameter)* ws?
+parameter           = identifier
+function-body       = statement (nl statement)*
+
+statement           = indent* pass-stmt
+pass-stmt           = <kw-pass>
+
+kw-extends          = 'extends'
+kw-enum             = 'enum'
+kw-func             = 'func'
+kw-pass             = 'pass'
+
+identifier          = #'[a-zA-Z_][a-zA-Z_0-9]*'
+string              = <'"'> #'[^"\\]*(\\.[^"\\]*)*' <'"'>
+integer             = '-'? numeric
+
+indent            = <'\t'> | <'  '>
+<numeric>           = #'[0-9]+'
+<nl>                = <ws>? (<comment> | <newline>)
+comment             = '#' comment-inside* newline
+comment-inside      = #'.'
+<ws>                = <#'\s'>+
+newline             = '\n'
