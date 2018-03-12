@@ -79,7 +79,8 @@
   (gdscript script :total total? :trace trace?))
 
 (defn preprocess-indention [source]
-  (let [source-lines (string/split-lines source)]
+  (let [source-lines (conj (string/split-lines source)
+                           "#EOF")] ; #EOF comment ensures that the file always ends with correct dedents
     (string/join
       "\n"
       (first
@@ -91,30 +92,34 @@
                   blank-line?    (= 0 (count without-spaces))]
               (vector
                 (conj processed
-                  (cond
-                    blank-line?
-                    ""
-                    (> indents indent-level)
-                    (string/join "" (into without-spaces (repeat (- indents indent-level) \»)))
-                    (< indents indent-level)
-                    (string/join "" (into without-spaces (repeat (- indent-level indents) \«)))
-                    :else
-                    (string/join "" without-spaces)))
+                  (str
+                    (cond
+                      blank-line?
+                      ""
+                      (> indents indent-level)
+                      (string/join "" (into without-spaces (repeat (- indents indent-level) \»)))
+                      (< indents indent-level)
+                      (string/join "" (into without-spaces (repeat (- indent-level indents) \«)))
+                      :else
+                      (string/join "" without-spaces))
+                    "#«" indent-level "»")) ; used for converting line/col numbers to raw for error reporting
                 (if blank-line? indent-level indents))))
           [[] 0]
           source-lines)))))
 
 (defn locate-error! [source error context-lines]
-  (println "Parse error on line" (str (:line error) ", column " (:column error)))
-  (let [numbered-source (->> source
+  (let [line-num (:line error)
+        col-num (+ (:column error) (int (second (re-find #"#«([0-9]+)»" (:text error)))))
+        numbered-source (->> source
                           (string/split-lines)
                           (map #(vector (str (inc %1)) %2) (range)))
-        error-context (if (< (:line error) context-lines)
-                        (take (:line error) numbered-source)
+        error-context (if (< line-num context-lines)
+                        (take line-num numbered-source)
                         (->> numbered-source
-                          (drop (- (:line error) context-lines))
+                          (drop (- line-num context-lines))
                           (take context-lines)))
         padding (apply max (map (comp count first) error-context))]
+    (println "Parse error on line" (str line-num ", column " col-num))
     (doseq [[line-number line-source] error-context]
       (println
         (str
@@ -128,15 +133,15 @@
         " "
         (apply str (repeat padding " "))
         "\t"
-        (apply str (repeat (dec (:column error)) " "))
+        (apply str (repeat (dec col-num) " "))
         "^"))))
 
 (defn -main [& args]
   (let [has-opts? (> (count args) 1)
         opts (if has-opts? (set (butlast args)) #{})]
     (if-let [script-file (if has-opts? (last args) (first args))]
-      (let [source (preprocess-indention (io/slurp script-file))
-            _ (println source)
+      (let [raw-source (io/slurp script-file)
+            source (preprocess-indention raw-source)
             result (parse-script source false false)]
         (if (insta/failure? result)
           (do
@@ -148,7 +153,7 @@
               (clojure.pprint/pprint (parse-script source true (contains? opts "--trace"))))
             (println)
             ;(pprint-failure result)
-            (locate-error! source result 3)
+            (locate-error! raw-source result 3)
             (println))
           (clojure.pprint/pprint
             (postwalk transform-all result))))
