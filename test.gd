@@ -1,38 +1,63 @@
-# a file is a class
-#
-# inheritance
-
-# foo
-    
-extends "../CustomRigidBody2D"
-
-# enums
-enum {UNIT_NEUTRAL, UNIT_ENEMY, UNIT_ALLY}
-enum Named {THING_1, THING_2=3, ANOTHER_THING = -1}
-
-# function
-func some_function(param1, param2):
-  pass
-  pass
-    pass
+# a file is a class!
 
 # inheritance
-#extends BaseClass
+
+extends BaseClass
+#extends "../FooClass"
 
 # member variables
 
-#var a = 5
-#var s = "Hello"
-#var arr = [1, 2, 3]
-#var dict = {"key": "value", 2:3}
+var a = 5
+var s = "Hello"
+var arr = [1, 2, 3]
+var dict = {"key": "value", 2:3}
 
 # constants
 
-#const answer = 42
-#const thename = "Charly"
+const answer = 42
+const thename = "Charly"
 
 # enums
 
 enum {UNIT_NEUTRAL, UNIT_ENEMY, UNIT_ALLY}
 enum Named {THING_1, THING_2, ANOTHER_THING = -1}
+
+# built-in vector types
+
+var v2 = Vector2(1, 2)
+var v3 = Vector3(1, 2, 3)
+
+# function
+
+func some_function(param1, param2):
+    var local_var = 5
+
+    if param1 < local_var:
+        print(param1)
+    elif param2 > 5:
+        print(param2)
+    else:
+        print("fail!")
+
+    for i in range(20):
+        print(i)
+
+    while param2 != 0:
+        param2 -= 1
+
+    var local_var2 = param1+3
+    return local_var2
+
+
+# inner class
+
+class Something:
+    var a = 10
+
+# constructor
+
+func _init():
+    print("constructed!")
+    var lv = Something.new()
+    print(lv.a)
 

@@ -1,36 +1,71 @@
-gdscript            = nl* extends? definitions
-extends             = <kw-extends> ws (string | identifier) nl
-<definitions>       = (definition | '') (nl definitions)?
-<definition>        = enum | function
+gdscript                = nl* extends? definitions
+extends                 = <kw-extends> ws (string | identifier) nl
+<definitions>           = (definition | '') (nl definitions)?
+<definition>            = enum-def | function-def | var-stmt | const-stmt
 
-enum                = <kw-enum> ws (enum-name ws)? <'{'> enum-entry (ws? <','> ws? enum-entry)* <'}'> ws?
-enum-entry          = enum-name (ws? <'='> ws? enum-value)?
-enum-name           = identifier
-enum-value          = integer
+enum-def                = <kw-enum> ws (enum-name ws)? <'{'> enum-entry (ws? <','> ws? enum-entry)* <'}'> ws?
+enum-entry              = enum-name (ws? <'='> ws? enum-value)?
+enum-name               = identifier
+enum-value              = integer
 
-function            = function-header nl function-body
-<function-header>   = <kw-func> ws function-name ws? <'('> ws? parameter-list ws? <'):'>
-function-name       = identifier
-parameter-list      = parameter? (ws? <','> ws? parameter)* ws?
-parameter           = identifier
-function-body       = statement (nl statement)*
+function-def            = function-header nl function-body
+<function-header>       = <kw-func> ws function-name ws? <'('> ws? parameter-list ws? <'):'>
+function-name           = identifier
+parameter-list          = parameter? (ws? <','> ws? parameter)* ws?
+parameter               = identifier
+function-body           = statement (nl statement)*
 
-statement           = indent* pass-stmt
-pass-stmt           = <kw-pass>
+function-call           = identifier ws? <'('> ws? call-parameter-list ws? <')'>
+call-parameter-list     = call-parameter? (ws? <','> ws? call-parameter)* ws?
+call-parameter          = identifier | literal
 
-kw-extends          = 'extends'
-kw-enum             = 'enum'
-kw-func             = 'func'
-kw-pass             = 'pass'
+expression              = (identifier | literal | function-call | sub-expression) (ws? rhs-operator ws? expression)?
+sub-expression          = <'('> ws? expression ws? <')'>
 
-identifier          = #'[a-zA-Z_][a-zA-Z_0-9]*'
-string              = <'"'> #'[^"\\]*(\\.[^"\\]*)*' <'"'>
-integer             = '-'? numeric
+statement               = indent* (pass-stmt | var-stmt | assignment-stmt | if-elif-else-stmt | function-call)
+pass-stmt               = <kw-pass>
+var-stmt                = <kw-var> ws identifier ws? <'='> ws? expression
+const-stmt              = <kw-const> ws identifier ws? <'='> ws? expression
+assignment-stmt         = identifier ws? lhs-operator ws? expression
+if-elif-else-stmt       = if-stmt elif-stmt* else-stmt?
+if-stmt                 = <kw-if> ws? expression ws? <':'> block
+elif-stmt               = <kw-elif> ws? expression ws? <':'> block
+else-stmt               = <kw-else> ws? <':'> block
 
-indent            = <'\t'> | <'  '>
-<numeric>           = #'[0-9]+'
-<nl>                = <ws>? (<comment> | <newline>)
-comment             = '#' comment-inside* newline
-comment-inside      = #'.'
-<ws>                = <#'\s'>+
-newline             = '\n'
+block                   = nl statement (nl statement)*
+
+rhs-operator            = equality-operators | arithmetic-operators
+lhs-operator            = '=' | '+=' | '-=' | '*=' | '/='
+<equality-operators>    = '>' | '<' | '>=' | '<=' | '==' | '!='
+<arithmetic-operators>  = '+' | '-' | '*' | '/'
+
+kw-extends              = 'extends'
+kw-enum                 = 'enum'
+kw-func                 = 'func'
+kw-pass                 = 'pass'
+kw-var                  = 'var'
+kw-const                = 'const'
+kw-if                   = 'if'
+kw-elif                 = 'elif'
+kw-else                 = 'else'
+
+literal                 = number | string | array-literal | dictionary-literal
+
+identifier              = #'[a-zA-Z_][a-zA-Z_0-9]*'
+string                  = <'"'> #'[^"\\]*(\\.[^"\\]*)*' <'"'>
+integer                 = '-'? numeric
+float                   = integer ('.' numeric)
+<number>                = integer | float
+array-literal           = <'['> ws? (literal (ws? <','> ws? literal)*)? ws? <']'>
+dictionary-literal      = <'{'> ws? (kv-pair (ws? <','> ws? kv-pair)*)? ws? <'}'>
+kv-pair                 = kv-pair-key ws? <':'> ws? kv-pair-value
+kv-pair-key             = string | integer
+kv-pair-value           = literal
+
+indent                  = <'\t'> | <'  '>
+<numeric>               = #'[0-9]+'
+<nl>                    = <ws>? (<comment> | <newline>)
+comment                 = '#' comment-inside* newline
+comment-inside          = #'.'
+<ws>                    = <#'\s'>+
+newline                 = '\n'
