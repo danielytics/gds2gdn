@@ -1,13 +1,16 @@
 (ns gds2gdn.core
-  (:require [instaparse.core :as insta :refer-macros [defparser]]
-            [instaparse.failure :refer [pprint-failure]]
-            [clojure.walk :refer [postwalk]]
-            [clojure.set :refer [rename-keys]]
-            [lumo.io :as io]
-            [clojure.string :as string]
-            [clojure.pprint]))
+ (:require #?(:cljs [instaparse.core :as insta :refer-macros [defparser]]
+              :clj  [instaparse.core :as insta])
+           [instaparse.failure :refer [pprint-failure]]
+           [clojure.walk :refer [postwalk]]
+           [clojure.set :refer [rename-keys]]
+           #?(:cljs [lumo.io :as io]
+              :clj [clojure.java.io :as io])
+           [clojure.string :as string]
+           [clojure.pprint]))
 
-(defparser gdscript (io/slurp "grammar.ebnf"))
+#?(:cljs (defparser gdscript (io/slurp "grammar.ebnf"))
+   :clj  (def gdscript (insta/parser (slurp (io/resource "grammar.ebnf")))))
 
 (def statement-types {:pass-stmt :pass})
 
@@ -89,27 +92,33 @@
             (let [leading-spaces (take-while #(contains? #{\space \tab} %) line)
                   without-spaces (drop (count leading-spaces) line)
                   indents        (reduce + (map {\space 1 \tab 8} leading-spaces))
-                  blank-line?    (= 0 (count without-spaces))]
+                  blank-line?    (or (= 0 (count without-spaces)) (and (= (first without-spaces) \#)
+                                                                       (not= without-spaces [\# \E \O \F])))]
               (vector
-                (conj processed
-                  (str
-                    (cond
-                      blank-line?
-                      ""
-                      (> indents indent-level)
-                      (string/join "" (into without-spaces (repeat (- indents indent-level) \»)))
-                      (< indents indent-level)
-                      (string/join "" (into without-spaces (repeat (- indent-level indents) \«)))
-                      :else
-                      (string/join "" without-spaces))
-                    "#«" indent-level "»")) ; used for converting line/col numbers to raw for error reporting
-                (if blank-line? indent-level indents))))
+               (conj processed
+                (str
+                  (cond
+                    blank-line?
+                    ""
+                    (> indents indent-level)
+                    (string/join "" (into without-spaces (repeat (- indents indent-level) \»)))
+                    (< indents indent-level)
+                    (string/join "" (into without-spaces (repeat (- indent-level indents) \«)))
+                    :else
+                    (string/join "" without-spaces))
+                  (when-not blank-line? (str "#«" indent-level "»")))) ; used for converting line/col numbers to raw for error reporting
+               (if blank-line? indent-level indents))))
           [[] 0]
           source-lines)))))
 
+(defn to-int [s]
+  (if (nil? s)
+    0
+    (#?(:cljs int :clj Integer/parseInt) s)))
+
 (defn locate-error! [source error context-lines]
   (let [line-num (:line error)
-        col-num (+ (:column error) (int (second (re-find #"#«([0-9]+)»" (:text error)))))
+        col-num (+ (:column error) (to-int (second (re-find #"#«([0-9]+)»$" (:text error)))))
         numbered-source (->> source
                           (string/split-lines)
                           (map #(vector (str (inc %1)) %2) (range)))
@@ -136,27 +145,41 @@
         (apply str (repeat (dec col-num) " "))
         "^"))))
 
+
+(defn transpile-file [script-file opts]
+  (let [raw-source (#?(:cljs io/slurp :clj slurp) script-file)
+            source (preprocess-indention raw-source)
+            result (parse-script source false false)]
+    (when (contains? opts "--show-indents")
+      (println "--------------- Source Code With Indent Info ---------------")
+      (println source)
+      (println "--------------- ---------------------------- ---------------")
+      (println))
+    (if (insta/failure? result)
+      (do
+        (println "ERROR:")
+        (clojure.pprint/pprint result)
+        (when (contains? opts "-t")
+          (println)
+          (println "Total parse mode results:")
+          (clojure.pprint/pprint (parse-script source true (contains? opts "--trace"))))
+        (println)
+        ;(pprint-failure result)
+        (locate-error! raw-source result 3)
+        (println))
+      (do
+        (when (contains? opts "--viz")
+          (insta/visualize (gdscript source) :options {:dpi 63}))
+        (clojure.pprint/pprint
+          (postwalk transform-all result))))))
+
 (defn -main [& args]
   (let [has-opts? (> (count args) 1)
         opts (if has-opts? (set (butlast args)) #{})]
+    (when (contains? opts "--grammar")
+      (println gdscript))
     (if-let [script-file (if has-opts? (last args) (first args))]
-      (let [raw-source (io/slurp script-file)
-            source (preprocess-indention raw-source)
-            result (parse-script source false false)]
-        (if (insta/failure? result)
-          (do
-            (println "ERROR:")
-            (clojure.pprint/pprint result)
-            (when (contains? opts "-t")
-              (println)
-              (println "Total parse mode results:")
-              (clojure.pprint/pprint (parse-script source true (contains? opts "--trace"))))
-            (println)
-            ;(pprint-failure result)
-            (locate-error! raw-source result 3)
-            (println))
-          (clojure.pprint/pprint
-            (postwalk transform-all result))))
+      (transpile-file script-file opts)
       (println "ERROR: No source file specified"))))
 
 #_

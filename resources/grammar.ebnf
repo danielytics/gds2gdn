@@ -1,4 +1,5 @@
-gdscript                = nl* extends? definitions
+start                = statements
+gdscript                = nl? extends? definitions
 extends                 = <kw-extends> ws (string | identifier) nl
 <definitions>           = (definition | '') (nl definitions)?
 <definition>            = enum-def | function-def | var-stmt | const-stmt
@@ -13,26 +14,27 @@ function-def            = function-header nl function-body
 function-name           = identifier
 parameter-list          = parameter? (ws? <','> ws? parameter)* ws?
 parameter               = identifier
-function-body           = statement (nl statement)*
+function-body           = block
 
 function-call           = identifier ws? <'('> ws? call-parameter-list ws? <')'>
 call-parameter-list     = call-parameter? (ws? <','> ws? call-parameter)* ws?
 call-parameter          = identifier | literal
 
 expression              = (identifier | literal | function-call | sub-expression) (ws? rhs-operator ws? expression)?
-sub-expression          = <'('> ws? expression ws? <')'>
+<sub-expression>        = <'('> ws? expression ws? <')'>
 
-statement               = indent* (pass-stmt | var-stmt | assignment-stmt | if-elif-else-stmt | function-call)
+statements              = statement (nl statement)*
+statement               = pass-stmt | var-stmt | assignment-stmt | if-elif-else-stmt | function-call
 pass-stmt               = <kw-pass>
 var-stmt                = <kw-var> ws identifier ws? <'='> ws? expression
 const-stmt              = <kw-const> ws identifier ws? <'='> ws? expression
 assignment-stmt         = identifier ws? lhs-operator ws? expression
 if-elif-else-stmt       = if-stmt elif-stmt* else-stmt?
-if-stmt                 = <kw-if> ws? expression ws? <':'> block
-elif-stmt               = <kw-elif> ws? expression ws? <':'> block
-else-stmt               = <kw-else> ws? <':'> block
+if-stmt                 = <kw-if> ws? expression ws? <':'> nl block
+elif-stmt               = <kw-elif> ws? expression ws? <':'> nl block
+else-stmt               = <kw-else> ws? <':'> nl block
 
-block                   = nl statement (nl statement)*
+block                   = indent (block | statements) nl dedent
 
 rhs-operator            = equality-operators | arithmetic-operators
 lhs-operator            = '=' | '+=' | '-=' | '*=' | '/='
@@ -62,10 +64,12 @@ kv-pair                 = kv-pair-key ws? <':'> ws? kv-pair-value
 kv-pair-key             = string | integer
 kv-pair-value           = literal
 
-indent                  = <'\t'> | <'  '>
+indent                  = <'»'>
+dedent                  = <'«'>
+
 <numeric>               = #'[0-9]+'
-<nl>                    = <ws>? (<comment> | <newline>)
+<nl>                    = (<ws>? (<comment> | <newline>))+
 comment                 = '#' comment-inside* newline
 comment-inside          = #'.'
-<ws>                    = <#'\s'>+
+<ws>                    = <#'\s+'>
 newline                 = '\n'
