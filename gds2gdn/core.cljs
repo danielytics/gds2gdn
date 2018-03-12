@@ -78,6 +78,31 @@
 (defn parse-script [script total? trace?]
   (gdscript script :total total? :trace trace?))
 
+(defn preprocess-indention [source]
+  (let [source-lines (string/split-lines source)]
+    (string/join
+      "\n"
+      (first
+        (reduce
+          (fn [[processed indent-level] line]
+            (let [leading-spaces (take-while #(contains? #{\space \tab} %) line)
+                  without-spaces (drop (count leading-spaces) line)
+                  indents        (reduce + (map {\space 1 \tab 8} leading-spaces))
+                  blank-line?    (= 0 (count without-spaces))]
+              (vector
+                (conj processed
+                  (cond
+                    blank-line?
+                    ""
+                    (> indents indent-level)
+                    (string/join "" (into without-spaces (repeat (- indents indent-level) \»)))
+                    (< indents indent-level)
+                    (string/join "" (into without-spaces (repeat (- indent-level indents) \«)))
+                    :else
+                    (string/join "" without-spaces)))
+                (if blank-line? indent-level indents))))
+          [[] 0]
+          source-lines)))))
 
 (defn locate-error! [source error context-lines]
   (println "Parse error on line" (str (:line error) ", column " (:column error)))
@@ -110,7 +135,8 @@
   (let [has-opts? (> (count args) 1)
         opts (if has-opts? (set (butlast args)) #{})]
     (if-let [script-file (if has-opts? (last args) (first args))]
-      (let [source (io/slurp script-file)
+      (let [source (preprocess-indention (io/slurp script-file))
+            _ (println source)
             result (parse-script source false false)]
         (if (insta/failure? result)
           (do
